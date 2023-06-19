@@ -1,10 +1,10 @@
-"""
-atheris - Main chess logic and processing
-v 0.5
-"""
+"""Main chess logic and processing"""
 from copy import deepcopy
 
-
+# Version 0.5
+# start date: 6/15/23
+# complete rewrite of logic code
+# test
 Point = tuple[int, int]
 BoardArray = list[list[list[int]]]
 
