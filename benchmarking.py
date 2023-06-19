@@ -1,4 +1,4 @@
-import main as a
+import Atheris as a
 import time as t
 
 
