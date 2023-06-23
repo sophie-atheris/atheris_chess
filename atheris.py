@@ -4,6 +4,7 @@ Main chess logic and processing
 version 0.5
 """
 from copy import deepcopy
+from time import process_time
 
 
 Point = tuple[int, int]
@@ -246,6 +247,25 @@ class Board:
             else []
         )
 
+    def fetch_all_moves(self, side: int) -> list[tuple[Point, Point]]:
+        """
+        Calculate the legal moves of the chess piece at position p1.
+
+        Args:
+            side (int): The side to find moves for
+
+        Returns:
+            list[Point]: A list of positions representing the legal moves of the chess piece.
+        """
+        output = []
+        for i in range(8):
+            for j in range(8):
+                if self.board[i][j][0] != 0 and self.board[i][j][2] == side:
+                    targets = self.fetch_moves((i, j))
+                    for target in targets:
+                        output.append(((i, j), target))
+        return output
+
     def find_king(self, side: int) -> Point:
         """
         Find the coordinates of the king of the specified side on the chess board.
@@ -404,8 +424,6 @@ class Board:
                 p2, p1, p2, piece_side
             ):
                 continue
-            if (dx, dy) == (-1, 0):
-                print(280, self.check_king(k1, p1, p2, piece_side), k1, p1, p2, piece_side)
             output.append(p2)
         return output
 
@@ -708,15 +726,6 @@ class Board:
 
         Returns:
             list[Point]: A list of positions (Points) representing the attacking pieces.
-
-        Notes:
-            - The function combines the results from multiple attack-checking functions to find all the attackers.
-            - It calls the following functions:
-                - king_checks(p1, side): Checks for attacking kings.
-                - pawn_checks(p1, side): Checks for attacking pawns.
-                - knight_checks(p1, side): Checks for attacking knights.
-                - ray_checks(p1, side): Checks for attacking pieces along the cardinal and diagonal directions(bishops, rooks, queens).
-            - The results from all the functions are concatenated and returned as a single list.
         """
         return (
             self.king_checks(p1, side)
@@ -744,21 +753,16 @@ class Board:
         tile_2 = self.board[a1[0]][a1[1]]
 
         if any((tile_1[0] != 6, tile_2[2] == tile_1[2], self.fetch_moves(k1))):
-            print(484)
-            print((tile_1[0] != 6, tile_2[2] == tile_1[2], self.fetch_moves(k1)))
             return False
 
         for a2 in self.fetch_attackers(a1, side):
             if self.board[a2[0]][a2[1]][0] == 6:
                 if not self.fetch_attackers(a1, not side):
-                    print(490)
                     return False
             else:
-                print(493)
                 return False
 
         if tile_2[0] == 2:
-            print(497)
             return True
 
         blockers = self.fetch_blockers(a1, k1, not side)
@@ -791,9 +795,7 @@ class Board:
             self.board[b2[0]][b2[1]] = [stored_data[3], stored_data[4], stored_data[5]]
 
             if not attacked:
-                print(536)
                 return False
-        print(538)
         return True
 
     def is_stalemate(self) -> bool:
@@ -826,9 +828,9 @@ class Board:
         Fetches the blockers between attacking point a1 and the king k1.
 
         Args:
-            a1 (Point): The attacking point.
-            k1 (Point): The king's position.
-            side (int): The side to check for blockers.
+            a1: The attacking point.
+            k1: The king's position.
+            side: The side to check for blockers.
 
         Returns:
             list[tuple[Point, Point]]: A list of tuples representing the positions of the blockers,
@@ -889,6 +891,15 @@ class Board:
                 else:
                     score -= count
         return score
+
+    def mate_check(self) -> bool:
+        """Determines if a position has a mate in it"""
+        kings = (self.find_king(0), self.find_king(1))
+        for i in (0, 1):
+            for a1 in self.fetch_attackers(kings[i], i):
+                if self.is_checkmate(a1, kings[i], i):
+                    return True
+        return False
 
 
 piece_dict = {
@@ -1046,14 +1057,109 @@ def turn(board: Board, coords: str):
     board.display_board()
 
 
+def perft(board: Board, side: int) -> int:
+    """
+    Calculates and evaluates board states at a depth of 4 from the starting position. Returns number of moves
+
+    Args:
+        board (Board): The board object representing the game state.
+        side (int): The depth that the function needs to generate moves to.
+
+    Returns:
+        int: number of moves generated
+    """
+    plie_4 = 0
+    plie_1 = 0
+    plie_2 = 0
+    plie_3 = 0
+    start = process_time()
+    for move in board.fetch_all_moves(side):
+        p1 = move[0]
+        p2 = move[1]
+        tile_1 = board.board[p1[0]][p1[1]]
+        tile_2 = board.board[p2[0]][p2[1]]
+        stored_data = (
+            tile_1[0],
+            tile_1[1],
+            tile_1[2],
+            tile_2[0],
+            tile_2[1],
+            tile_2[2],
+        )
+        board.update(p1, p2)
+        plie_1 += 1
+        if not board.mate_check():
+            for move2 in board.fetch_all_moves(not side):
+                p11 = move2[0]
+                p21 = move2[1]
+                tile_11 = board.board[p11[0]][p11[1]]
+                tile_21 = board.board[p21[0]][p21[1]]
+                stored_data1 = (
+                    tile_11[0],
+                    tile_11[1],
+                    tile_11[2],
+                    tile_21[0],
+                    tile_21[1],
+                    tile_21[2],
+                )
+                board.update(p11, p21)
+                plie_2 += 1
+                if not board.mate_check():
+                    for move3 in board.fetch_all_moves(side):
+                        p12 = move3[0]
+                        p22 = move3[1]
+                        tile_12 = board.board[p12[0]][p12[1]]
+                        tile_22 = board.board[p22[0]][p22[1]]
+                        stored_data2 = (
+                            tile_12[0],
+                            tile_12[1],
+                            tile_12[2],
+                            tile_22[0],
+                            tile_22[1],
+                            tile_22[2],
+                        )
+                        board.update(p12, p22)
+                        plie_3 += 1
+                        if not board.mate_check():
+                            for move4 in board.fetch_all_moves(not side):
+                                p13 = move4[0]
+                                p23 = move4[1]
+                                tile_13 = board.board[p13[0]][p13[1]]
+                                tile_23 = board.board[p23[0]][p23[1]]
+                                stored_data3 = (
+                                    tile_13[0],
+                                    tile_13[1],
+                                    tile_13[2],
+                                    tile_23[0],
+                                    tile_23[1],
+                                    tile_23[2],
+                                )
+                                board.update(p13, p23)
+                                if not board.mate_check():
+                                    plie_4 += 1
+                                    board.evaluate()
+                                board.board[p13[0]][p13[1]] = [stored_data3[0], stored_data3[1], stored_data3[2]]
+                                board.board[p23[0]][p23[1]] = [stored_data3[3], stored_data3[4], stored_data3[5]]
+                        board.board[p12[0]][p12[1]] = [stored_data2[0], stored_data2[1], stored_data2[2]]
+                        board.board[p22[0]][p22[1]] = [stored_data2[3], stored_data2[4], stored_data2[5]]
+                board.board[p11[0]][p11[1]] = [stored_data1[0], stored_data1[1], stored_data1[2]]
+                board.board[p21[0]][p21[1]] = [stored_data1[3], stored_data1[4], stored_data1[5]]
+        board.board[p1[0]][p1[1]] = [stored_data[0], stored_data[1], stored_data[2]]
+        board.board[p2[0]][p2[1]] = [stored_data[3], stored_data[4], stored_data[5]]
+    time = round(process_time() - start, 2)
+    print(time, round(time * 1000000 / plie_4, 2))
+    print(plie_1, plie_2, plie_3, plie_4)
+    return plie_4
+
+
 if __name__ == "__main__":
     with open('position_fens.txt') as f:
         positions = f.readlines()
-    game = Board(positions[4])
+    game = Board(positions[0])
     game.display_board()
     while True:
-        entry = "h5e5"  # input("Enter chess notation (or x to exit)")
+        perft(game, game.turn)
+        entry = input("Enter chess notation (or x to exit)")
         if entry == "x":
             break
         turn(game, entry)
-        break
